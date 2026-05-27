@@ -1,0 +1,16 @@
+services:
+  book-mysql:
+    image: mysql:8.4
+    container_name: book-mysql
+    ports:
+      - "3307:3306"
+    environment:
+      MYSQL_DATABASE: book
+      MYSQL_USER: book
+      MYSQL_PASSWORD: book
+      MYSQL_ROOT_PASSWORD: root
+    volumes:
+      - book-mysql-data:/var/lib/mysql
+
+volumes:
+  book-mysql-data:
