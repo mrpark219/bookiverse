@@ -12,6 +12,15 @@
         </option>
       </GradleProjectSettings>
       <GradleProjectSettings>
+        <option name="externalProjectPath" value="$PROJECT_DIR$/book-catalog" />
+        <option name="gradleJvm" value="zulu-25" />
+        <option name="modules">
+          <set>
+            <option value="$PROJECT_DIR$/book-catalog" />
+          </set>
+        </option>
+      </GradleProjectSettings>
+      <GradleProjectSettings>
         <option name="externalProjectPath" value="$PROJECT_DIR$/gateway" />
         <option name="gradleJvm" value="zulu-25" />
         <option name="modules">

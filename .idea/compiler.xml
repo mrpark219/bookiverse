@@ -3,6 +3,9 @@
   <component name="JavacSettings">
     <option name="ADDITIONAL_OPTIONS_OVERRIDE">
       <module name="book" options="-parameters" />
+      <module name="book-catalog" options="-parameters" />
+      <module name="book-catalog.main" options="-parameters" />
+      <module name="book-catalog.test" options="-parameters" />
       <module name="book.main" options="-parameters" />
       <module name="book.test" options="-parameters" />
       <module name="gateway" options="-parameters" />
