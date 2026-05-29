@@ -29,6 +29,10 @@
           </set>
         </option>
       </GradleProjectSettings>
+      <GradleProjectSettings>
+        <option name="externalProjectPath" value="$PROJECT_DIR$/rental" />
+        <option name="gradleJvm" value="zulu-25" />
+      </GradleProjectSettings>
     </option>
   </component>
 </project>
