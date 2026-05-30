@@ -11,6 +11,9 @@
       <module name="gateway" options="-parameters" />
       <module name="gateway.main" options="-parameters" />
       <module name="gateway.test" options="-parameters" />
+      <module name="rental" options="-parameters" />
+      <module name="rental.main" options="-parameters" />
+      <module name="rental.test" options="-parameters" />
     </option>
   </component>
 </project>

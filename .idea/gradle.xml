@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
+  <component name="GradleMigrationSettings" migrationVersion="1" />
   <component name="GradleSettings">
     <option name="linkedExternalProjectsSettings">
       <GradleProjectSettings>
@@ -32,6 +33,11 @@
       <GradleProjectSettings>
         <option name="externalProjectPath" value="$PROJECT_DIR$/rental" />
         <option name="gradleJvm" value="zulu-25" />
+        <option name="modules">
+          <set>
+            <option value="$PROJECT_DIR$/rental" />
+          </set>
+        </option>
       </GradleProjectSettings>
     </option>
   </component>
