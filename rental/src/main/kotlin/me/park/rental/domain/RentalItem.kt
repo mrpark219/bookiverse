@@ -22,6 +22,9 @@ class RentalItem(
     var bookId: Long,
 
     @Column(nullable = false)
+    var bookTitle: String,
+
+    @Column(nullable = false)
     var rentedDate: LocalDate,
 
     @Column(nullable = false)
@@ -42,4 +45,8 @@ class RentalItem(
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column
     var id: Long? = null
+
+    fun isCurrentlyRented(): Boolean {
+        return status != RentalItemStatus.RETURNED
+    }
 }
