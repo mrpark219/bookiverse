@@ -8,18 +8,18 @@ import jakarta.persistence.Id
 
 @Entity
 class Book(
-    @Column(name = "title", nullable = false)
+    @Column(nullable = false)
     var title: String,
 
-    @Column(name = "author", nullable = false)
+    @Column(nullable = false)
     var author: String,
 
-    @Column(name = "description")
+    @Column
     var description: String? = null,
 ) {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id")
+    @Column
     var id: Long? = null
 }
