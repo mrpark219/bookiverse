@@ -1,12 +1,13 @@
-package me.park.rental.service
+package me.park.rental.application
 
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.verify
+import me.park.rental.application.command.RentBookCommand
+import me.park.rental.application.port.out.RentalRepository
 import me.park.rental.domain.Rental
 import me.park.rental.domain.RentalItemStatus
-import me.park.rental.repository.RentalRepository
 import org.junit.jupiter.api.DisplayName
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -23,9 +24,11 @@ class RentalServiceTest {
         val rentalService = RentalService(rentalRepository)
 
         val rentalItem = rentalService.rentBook(
-            userId = 1L,
-            bookId = 10L,
-            bookTitle = "오브젝트",
+            RentBookCommand(
+                userId = 1L,
+                bookId = 10L,
+                bookTitle = "오브젝트",
+            ),
         )
 
         verify(exactly = 1) { rentalRepository.findByUserId(1L) }
@@ -47,9 +50,11 @@ class RentalServiceTest {
         val rentalService = RentalService(rentalRepository)
 
         val rentalItem = rentalService.rentBook(
-            userId = 1L,
-            bookId = 10L,
-            bookTitle = "오브젝트",
+            RentBookCommand(
+                userId = 1L,
+                bookId = 10L,
+                bookTitle = "오브젝트",
+            ),
         )
 
         verify(exactly = 1) { rentalRepository.findByUserId(1L) }
