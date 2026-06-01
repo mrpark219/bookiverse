@@ -62,13 +62,15 @@ class Rental(
         return rentalItem
     }
 
-    fun returnBook(bookId: Long) {
+    fun returnBook(bookId: Long): RentalItem {
         val rentalItem = rentalItems.first {
             it.bookId == bookId && it.isCurrentlyRented()
         }
 
         rentalItem.status = RentalItemStatus.RETURNED
         rentalItem.returnedDate = LocalDate.now()
+
+        return rentalItem
     }
 
     companion object {
