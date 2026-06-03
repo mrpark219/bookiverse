@@ -1,0 +1,19 @@
+@host = http://localhost:8083
+@userId = 1
+@bookId = 10
+@bookTitle = 오브젝트
+
+### 도서 대여
+POST {{host}}/rentals/{{userId}}/items
+Content-Type: application/json
+
+{
+  "bookId": {{bookId}},
+  "bookTitle": "{{bookTitle}}"
+}
+
+### 도서 반납
+POST {{host}}/rentals/{{userId}}/items/{{bookId}}/return
+
+### 대여 이력이 없는 사용자 도서 반납
+POST {{host}}/rentals/999999/items/{{bookId}}/return
