@@ -1,0 +1,9 @@
+@host = http://localhost:8081
+@bookId = 1
+
+### 도서 정보 조회
+GET {{host}}/books/{{bookId}}
+
+### 없는 도서 정보 조회
+GET {{host}}/books/999999
+
