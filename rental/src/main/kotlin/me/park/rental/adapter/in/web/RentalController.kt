@@ -1,14 +1,13 @@
 package me.park.rental.adapter.`in`.web
 
-import me.park.rental.adapter.`in`.web.request.RentBookRequest
 import me.park.rental.adapter.`in`.web.response.RentalItemResponse
+import me.park.rental.application.command.RentBookCommand
 import me.park.rental.application.command.ReturnBookCommand
 import me.park.rental.application.port.`in`.RentBookUseCase
 import me.park.rental.application.port.`in`.ReturnBookUseCase
 import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
-import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
@@ -20,13 +19,18 @@ class RentalController(
     private val returnBookUseCase: ReturnBookUseCase,
 ) {
 
-    @PostMapping("/{userId}/items")
+    @PostMapping("/{userId}/books/{bookId}")
     @ResponseStatus(HttpStatus.CREATED)
     fun rentBook(
         @PathVariable userId: Long,
-        @RequestBody request: RentBookRequest,
+        @PathVariable bookId: Long,
     ): RentalItemResponse {
-        val rentalItem = rentBookUseCase.rentBook(request.toCommand(userId))
+        val rentalItem = rentBookUseCase.rentBook(
+            RentBookCommand(
+                userId = userId,
+                bookId = bookId,
+            ),
+        )
 
         return RentalItemResponse.from(rentalItem)
     }

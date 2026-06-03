@@ -4,6 +4,7 @@ import me.park.rental.application.command.RentBookCommand
 import me.park.rental.application.command.ReturnBookCommand
 import me.park.rental.application.port.`in`.RentBookUseCase
 import me.park.rental.application.port.`in`.ReturnBookUseCase
+import me.park.rental.application.port.out.BookQueryPort
 import me.park.rental.application.port.out.RentalRepository
 import me.park.rental.domain.Rental
 import me.park.rental.domain.RentalItem
@@ -14,14 +15,16 @@ import org.springframework.transaction.annotation.Transactional
 @Service
 class RentalService(
     private val rentalRepository: RentalRepository,
+    private val bookQueryPort: BookQueryPort,
 ) : RentBookUseCase, ReturnBookUseCase {
 
     @Transactional
     override fun rentBook(command: RentBookCommand): RentalItem {
+        val book = bookQueryPort.getBook(command.bookId)
         val rental = rentalRepository.findByUserId(command.userId)
             ?: rentalRepository.save(Rental.create(command.userId))
 
-        val rentalItem = rental.rentBook(command.bookId, command.bookTitle)
+        val rentalItem = rental.rentBook(book.id, book.title)
 
         // TODO 도서 대출 이벤트 발송
 

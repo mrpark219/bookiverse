@@ -12,7 +12,6 @@ import org.mockito.BDDMockito.given
 import org.mockito.BDDMockito.then
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest
-import org.springframework.http.MediaType
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
@@ -37,7 +36,6 @@ class RentalControllerTest {
         val command = RentBookCommand(
             userId = 1L,
             bookId = 10L,
-            bookTitle = "오브젝트",
         )
         val rentalItem = Rental.create(userId = 1L).rentBook(
             bookId = 10L,
@@ -46,16 +44,7 @@ class RentalControllerTest {
         given(rentBookUseCase.rentBook(command)).willReturn(rentalItem)
 
         mockMvc.perform(
-            post("/rentals/{userId}/items", 1L)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(
-                    """
-                    {
-                      "bookId": 10,
-                      "bookTitle": "오브젝트"
-                    }
-                    """.trimIndent(),
-                ),
+            post("/rentals/{userId}/books/{bookId}", 1L, 10L),
         )
             .andExpect(status().isCreated)
             .andExpect(jsonPath("$.bookId").value(10))

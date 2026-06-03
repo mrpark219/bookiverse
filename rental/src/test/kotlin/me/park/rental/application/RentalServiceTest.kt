@@ -5,6 +5,8 @@ import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.verify
 import me.park.rental.application.command.RentBookCommand
+import me.park.rental.application.port.out.BookInfo
+import me.park.rental.application.port.out.BookQueryPort
 import me.park.rental.application.port.out.RentalRepository
 import me.park.rental.domain.Rental
 import me.park.rental.domain.RentalItemStatus
@@ -20,17 +22,22 @@ class RentalServiceTest {
     fun rentBookWithExistingRental() {
         val rental = Rental.create(userId = 1L)
         val rentalRepository = mockk<RentalRepository>()
+        val bookQueryPort = mockk<BookQueryPort>()
         every { rentalRepository.findByUserId(1L) } returns rental
-        val rentalService = RentalService(rentalRepository)
+        every { bookQueryPort.getBook(10L) } returns BookInfo(
+            id = 10L,
+            title = "오브젝트",
+        )
+        val rentalService = RentalService(rentalRepository, bookQueryPort)
 
         val rentalItem = rentalService.rentBook(
             RentBookCommand(
                 userId = 1L,
                 bookId = 10L,
-                bookTitle = "오브젝트",
             ),
         )
 
+        verify(exactly = 1) { bookQueryPort.getBook(10L) }
         verify(exactly = 1) { rentalRepository.findByUserId(1L) }
         verify(exactly = 0) { rentalRepository.save(any<Rental>()) }
         assertSame(rental, rentalItem.rental)
@@ -45,18 +52,23 @@ class RentalServiceTest {
     fun rentBookWithNewRental() {
         val savedRental = slot<Rental>()
         val rentalRepository = mockk<RentalRepository>()
+        val bookQueryPort = mockk<BookQueryPort>()
         every { rentalRepository.findByUserId(1L) } returns null
         every { rentalRepository.save(capture(savedRental)) } answers { savedRental.captured }
-        val rentalService = RentalService(rentalRepository)
+        every { bookQueryPort.getBook(10L) } returns BookInfo(
+            id = 10L,
+            title = "오브젝트",
+        )
+        val rentalService = RentalService(rentalRepository, bookQueryPort)
 
         val rentalItem = rentalService.rentBook(
             RentBookCommand(
                 userId = 1L,
                 bookId = 10L,
-                bookTitle = "오브젝트",
             ),
         )
 
+        verify(exactly = 1) { bookQueryPort.getBook(10L) }
         verify(exactly = 1) { rentalRepository.findByUserId(1L) }
         verify(exactly = 1) { rentalRepository.save(any<Rental>()) }
         assertEquals(1L, savedRental.captured.userId)
