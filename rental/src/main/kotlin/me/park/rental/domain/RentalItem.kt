@@ -24,6 +24,9 @@ class RentalItem(
     @Column(nullable = false)
     var bookTitle: String,
 
+    @Column(nullable = false, unique = true)
+    var stockDeductRequestId: String,
+
     @Column(nullable = false)
     var rentedDate: LocalDate,
 
@@ -47,6 +50,10 @@ class RentalItem(
     var id: Long? = null
 
     fun isCurrentlyRented(): Boolean {
-        return status != RentalItemStatus.RETURNED
+        return status == RentalItemStatus.RENTED || status == RentalItemStatus.OVERDUE
+    }
+
+    fun countsTowardRentalLimit(): Boolean {
+        return status == RentalItemStatus.PENDING || isCurrentlyRented()
     }
 }

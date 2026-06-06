@@ -1,5 +1,6 @@
 package me.park.rental.adapter.`in`.web
 
+import me.park.rental.adapter.`in`.web.response.RentBookResponse
 import me.park.rental.adapter.`in`.web.response.RentalItemResponse
 import me.park.rental.application.command.RentBookCommand
 import me.park.rental.application.command.ReturnBookCommand
@@ -20,11 +21,11 @@ class RentalController(
 ) {
 
     @PostMapping("/{userId}/books/{bookId}")
-    @ResponseStatus(HttpStatus.CREATED)
+    @ResponseStatus(HttpStatus.ACCEPTED)
     fun rentBook(
         @PathVariable userId: Long,
         @PathVariable bookId: Long,
-    ): RentalItemResponse {
+    ): RentBookResponse {
         val rentalItem = rentBookUseCase.rentBook(
             RentBookCommand(
                 userId = userId,
@@ -32,7 +33,7 @@ class RentalController(
             ),
         )
 
-        return RentalItemResponse.from(rentalItem)
+        return RentBookResponse.from(rentalItem)
     }
 
     @PostMapping("/{userId}/items/{bookId}/return")

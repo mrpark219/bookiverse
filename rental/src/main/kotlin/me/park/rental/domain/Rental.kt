@@ -36,7 +36,7 @@ class Rental(
             throw RentUnavailableException("연체 상태입니다. 연체료를 정산 후 도서를 대출하실 수 있습니다.")
         }
 
-        if (rentalItems.count { it.isCurrentlyRented() } >= MAX_RENTAL_ITEM_COUNT) {
+        if (rentalItems.count { it.countsTowardRentalLimit() } >= MAX_RENTAL_ITEM_COUNT) {
             throw RentUnavailableException("대출 가능한 도서의 수는 ${MAX_RENTAL_ITEM_COUNT}권 입니다.")
         }
     }
@@ -44,6 +44,7 @@ class Rental(
     fun rentBook(
         bookId: Long,
         bookTitle: String,
+        stockDeductRequestId: String,
     ): RentalItem {
         checkRentalAvailable()
 
@@ -52,9 +53,10 @@ class Rental(
             rental = this,
             bookId = bookId,
             bookTitle = bookTitle,
+            stockDeductRequestId = stockDeductRequestId,
             rentedDate = rentedDate,
             dueDate = rentedDate.plusDays(RENTAL_PERIOD_DAYS),
-            status = RentalItemStatus.RENTED,
+            status = RentalItemStatus.PENDING,
         )
 
         rentalItems.add(rentalItem)
