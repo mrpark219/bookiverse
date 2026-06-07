@@ -53,6 +53,7 @@ class StockDeductRequestedOutboxAdapterTest {
         assertFalse(OutBoxRecord::class.memberProperties.any { it.name == "aggregateId" })
         assertEquals(StockDeductRequestedEvent.EVENT_TYPE, outBoxRecord.captured.eventType)
         assertEquals(StockDeductRequestedEvent.TOPIC, outBoxRecord.captured.topic)
+        assertEquals(event.bookId.toString(), outBoxRecord.captured.messageKey)
         assertEquals(payload, outBoxRecord.captured.payload)
         assertEquals(OutBoxRecordStatus.PENDING, outBoxRecord.captured.status)
         assertNotNull(outBoxRecord.captured.createdAt)

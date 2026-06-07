@@ -19,6 +19,7 @@ class StockDeductRequestedOutboxAdapter(
                 id = event.eventId,
                 eventType = StockDeductRequestedEvent.EVENT_TYPE,
                 topic = StockDeductRequestedEvent.TOPIC,
+                messageKey = event.bookId.toString(),
                 payload = objectMapper.writeValueAsString(event),
             ),
         )

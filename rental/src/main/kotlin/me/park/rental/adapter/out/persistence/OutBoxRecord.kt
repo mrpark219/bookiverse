@@ -22,6 +22,9 @@ class OutBoxRecord(
     @Column(nullable = false, length = 100)
     var topic: String,
 
+    @Column(length = 100)
+    var messageKey: String? = null,
+
     @Lob
     @Column(nullable = false, columnDefinition = "TEXT")
     var payload: String,
@@ -35,4 +38,10 @@ class OutBoxRecord(
 
     @Column
     var publishedAt: LocalDateTime? = null,
-)
+) {
+
+    fun markPublished(publishedAt: LocalDateTime = LocalDateTime.now()) {
+        status = OutBoxRecordStatus.PUBLISHED
+        this.publishedAt = publishedAt
+    }
+}
