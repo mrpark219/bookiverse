@@ -28,39 +28,49 @@ class OutBoxRecordPublisher(
 
     private fun publish(record: OutBoxRecord) {
         runCatching {
-            log.info(
-                "Kafka 메시지 발행을 시도합니다. id={}, eventType={}, topic={}, key={}",
-                record.id,
-                record.eventType,
-                record.topic,
-                record.messageKey,
-            )
-            kafkaTemplate.send(
-                ProducerRecord(
-                    record.topic,
-                    record.messageKey,
-                    record.payload,
-                ),
-            ).get()
+            logPublishAttempt(record)
+            kafkaTemplate.send(record.toProducerRecord()).get()
         }.onSuccess {
             record.markPublished()
-            log.info(
-                "Kafka 메시지 발행에 성공했습니다. id={}, eventType={}, topic={}, key={}",
-                record.id,
-                record.eventType,
-                record.topic,
-                record.messageKey,
-            )
+            logPublishSuccess(record)
         }.onFailure { exception ->
-            log.warn(
-                "Kafka 메시지 발행에 실패했습니다. id={}, eventType={}, topic={}, key={}",
-                record.id,
-                record.eventType,
-                record.topic,
-                record.messageKey,
-                exception,
-            )
+            logPublishFailure(record, exception)
         }
+    }
+
+    private fun OutBoxRecord.toProducerRecord(): ProducerRecord<String, String> {
+        return ProducerRecord(topic, messageKey, payload)
+    }
+
+    private fun logPublishAttempt(record: OutBoxRecord) {
+        log.info(
+            "Kafka 메시지 발행을 시도합니다. id={}, eventType={}, topic={}, key={}",
+            record.id,
+            record.eventType,
+            record.topic,
+            record.messageKey,
+        )
+    }
+
+    private fun logPublishSuccess(record: OutBoxRecord) {
+        log.info(
+            "Kafka 메시지 발행에 성공했습니다. id={}, eventType={}, topic={}, key={}",
+            record.id,
+            record.eventType,
+            record.topic,
+            record.messageKey,
+        )
+    }
+
+    private fun logPublishFailure(record: OutBoxRecord, exception: Throwable) {
+        log.warn(
+            "Kafka 메시지 발행에 실패했습니다. id={}, eventType={}, topic={}, key={}",
+            record.id,
+            record.eventType,
+            record.topic,
+            record.messageKey,
+            exception,
+        )
     }
 
     companion object {
