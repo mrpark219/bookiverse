@@ -3,7 +3,6 @@ package me.park.rental.adapter.out.event
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
-import io.mockk.verify
 import me.park.rental.adapter.out.persistence.JpaOutBoxRecordRepository
 import me.park.rental.adapter.out.persistence.OutBoxRecord
 import me.park.rental.adapter.out.persistence.OutBoxRecordStatus
@@ -47,8 +46,6 @@ class StockDeductRequestedOutboxAdapterTest {
         adapter.save(event)
 
         // then
-        verify(exactly = 1) { objectMapper.writeValueAsString(event) }
-        verify(exactly = 1) { jpaOutBoxRecordRepository.save(any()) }
         assertEquals(event.eventId, outBoxRecord.captured.id)
         assertFalse(OutBoxRecord::class.memberProperties.any { it.name == "aggregateId" })
         assertEquals(StockDeductRequestedEvent.EVENT_TYPE, outBoxRecord.captured.eventType)

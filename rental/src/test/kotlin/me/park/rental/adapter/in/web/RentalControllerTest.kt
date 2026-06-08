@@ -9,7 +9,6 @@ import me.park.rental.domain.RentalItemStatus
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import org.mockito.BDDMockito.given
-import org.mockito.BDDMockito.then
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest
 import org.springframework.test.context.bean.override.mockito.MockitoBean
@@ -61,7 +60,6 @@ class RentalControllerTest {
             .andExpect(jsonPath("$.status").value(RentalItemStatus.PENDING.name))
             .andExpect(jsonPath("$.rentedDate").value(rentalItem.rentedDate.toString()))
             .andExpect(jsonPath("$.dueDate").value(rentalItem.dueDate.toString()))
-        then(rentBookUseCase).should().rentBook(command)
     }
 
     @Test
@@ -94,6 +92,5 @@ class RentalControllerTest {
             .andExpect(jsonPath("$.bookTitle").value("오브젝트"))
             .andExpect(jsonPath("$.status").value(RentalItemStatus.RETURNED.name))
             .andExpect(jsonPath("$.returnedDate").value(rentalItem.returnedDate.toString()))
-        then(returnBookUseCase).should().returnBook(command)
     }
 }

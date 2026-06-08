@@ -7,17 +7,21 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class RentalTest {
 
     @Test
     @DisplayName("사용자 ID로 대출을 생성한다")
     fun createRentalByUserId() {
+        // given
+        val userId = 1L
+
         // when
-        val rental = Rental.create(userId = 1L)
+        val rental = Rental.create(userId = userId)
 
         // then
-        assertEquals(1L, rental.userId)
+        assertEquals(userId, rental.userId)
         assertEquals(RentalStatus.RENT_AVAILABLE, rental.rentalStatus)
         assertEquals(0L, rental.lateFee)
         assertEquals(emptyList(), rental.rentalItems)
@@ -94,7 +98,12 @@ class RentalTest {
         )
 
         // when
-        rental.checkRentalAvailable()
+        val result = runCatching {
+            rental.checkRentalAvailable()
+        }
+
+        // then
+        assertTrue(result.isSuccess)
     }
 
     @Test
@@ -119,7 +128,12 @@ class RentalTest {
         )
 
         // when
-        rental.checkRentalAvailable()
+        val result = runCatching {
+            rental.checkRentalAvailable()
+        }
+
+        // then
+        assertTrue(result.isSuccess)
     }
 
     @Test
@@ -159,7 +173,7 @@ class RentalTest {
         )
 
         // when
-        assertFailsWith<RentUnavailableException> {
+        val exception = assertFailsWith<RentUnavailableException> {
             rental.rentBook(
                 bookId = 1L,
                 bookTitle = "오브젝트",
@@ -168,6 +182,7 @@ class RentalTest {
         }
 
         // then
+        assertEquals("연체 상태입니다. 연체료를 정산 후 도서를 대출하실 수 있습니다.", exception.message)
         assertEquals(emptyList(), rental.rentalItems)
     }
 

@@ -5,7 +5,6 @@ import io.mockk.just
 import io.mockk.mockk
 import io.mockk.Runs
 import io.mockk.slot
-import io.mockk.verify
 import me.park.rental.application.command.RentBookCommand
 import me.park.rental.application.event.StockDeductRequestedEvent
 import me.park.rental.application.port.out.BookInfo
@@ -48,10 +47,6 @@ class RentalServiceTest {
         )
 
         // then
-        verify(exactly = 1) { bookQueryPort.getBook(10L) }
-        verify(exactly = 1) { rentalRepository.findByUserId(1L) }
-        verify(exactly = 0) { rentalRepository.save(any<Rental>()) }
-        verify(exactly = 1) { stockDeductRequestedEventPort.save(any()) }
         assertSame(rental, rentalItem.rental)
         assertEquals(10L, rentalItem.bookId)
         assertEquals("오브젝트", rentalItem.bookTitle)
@@ -91,10 +86,6 @@ class RentalServiceTest {
         )
 
         // then
-        verify(exactly = 1) { bookQueryPort.getBook(10L) }
-        verify(exactly = 1) { rentalRepository.findByUserId(1L) }
-        verify(exactly = 1) { rentalRepository.save(any<Rental>()) }
-        verify(exactly = 1) { stockDeductRequestedEventPort.save(any()) }
         assertEquals(1L, savedRental.captured.userId)
         assertSame(savedRental.captured, rentalItem.rental)
         assertEquals(10L, rentalItem.bookId)

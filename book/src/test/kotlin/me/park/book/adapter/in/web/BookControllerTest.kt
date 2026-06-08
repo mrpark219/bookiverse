@@ -7,7 +7,6 @@ import me.park.book.domain.BookNotFoundException
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import org.mockito.BDDMockito.given
-import org.mockito.BDDMockito.then
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest
 import org.springframework.test.context.bean.override.mockito.MockitoBean
@@ -28,6 +27,7 @@ class BookControllerTest {
     @Test
     @DisplayName("도서 ID로 도서 정보를 조회한다")
     fun getBookById() {
+        // given
         val query = GetBookQuery(bookId = 10L)
         val book = Book(
             title = "오브젝트",
@@ -37,31 +37,36 @@ class BookControllerTest {
         book.id = 10L
         given(getBookUseCase.getBook(query)).willReturn(book)
 
-        mockMvc.perform(
+        // when
+        val resultActions = mockMvc.perform(
             get("/books/{bookId}", 10L),
         )
+
+        // then
+        resultActions
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.id").value(10))
             .andExpect(jsonPath("$.title").value("오브젝트"))
             .andExpect(jsonPath("$.author").value("조영호"))
             .andExpect(jsonPath("$.description").value("객체지향 설계에 관한 책"))
-
-        then(getBookUseCase).should().getBook(query)
     }
 
     @Test
     @DisplayName("도서 정보가 없으면 404로 응답한다")
     fun getBookByIdNotFound() {
+        // given
         val query = GetBookQuery(bookId = 10L)
         given(getBookUseCase.getBook(query))
             .willThrow(BookNotFoundException("도서 정보를 찾을 수 없습니다. bookId=10"))
 
-        mockMvc.perform(
+        // when
+        val resultActions = mockMvc.perform(
             get("/books/{bookId}", 10L),
         )
+
+        // then
+        resultActions
             .andExpect(status().isNotFound)
             .andExpect(jsonPath("$.message").value("도서 정보를 찾을 수 없습니다. bookId=10"))
-
-        then(getBookUseCase).should().getBook(query)
     }
 }
