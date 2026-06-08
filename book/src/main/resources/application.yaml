@@ -4,6 +4,16 @@ server:
 spring:
   application:
     name: book
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: book
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      auto-offset-reset: earliest
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
   datasource:
     url: jdbc:mysql://localhost:3307/book?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
     username: book
@@ -16,3 +26,8 @@ spring:
       hibernate:
         format_sql: true
     show-sql: true
+
+book:
+  outbox:
+    publisher:
+      fixed-delay-ms: 1000
