@@ -56,4 +56,10 @@ class RentalItem(
     fun countsTowardRentalLimit(): Boolean {
         return status == RentalItemStatus.PENDING || isCurrentlyRented()
     }
+
+    fun confirmRent() {
+        if (status == RentalItemStatus.PENDING) {
+            status = RentalItemStatus.RENTED
+        }
+    }
 }

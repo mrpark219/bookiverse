@@ -7,13 +7,16 @@ import io.mockk.Runs
 import io.mockk.slot
 import me.park.rental.application.command.RentBookCommand
 import me.park.rental.application.event.StockDeductRequestedEvent
+import me.park.rental.application.event.StockDeductedEvent
 import me.park.rental.application.port.out.BookInfo
 import me.park.rental.application.port.out.BookQueryPort
+import me.park.rental.application.port.out.RentalItemRepository
 import me.park.rental.application.port.out.RentalRepository
 import me.park.rental.application.port.out.StockDeductRequestedEventPort
 import me.park.rental.domain.Rental
 import me.park.rental.domain.RentalItemStatus
 import org.junit.jupiter.api.DisplayName
+import java.time.LocalDateTime
 import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -27,6 +30,7 @@ class RentalServiceTest {
         // given
         val rental = Rental.create(userId = 1L)
         val rentalRepository = mockk<RentalRepository>()
+        val rentalItemRepository = mockk<RentalItemRepository>()
         val bookQueryPort = mockk<BookQueryPort>()
         val stockDeductRequestedEventPort = mockk<StockDeductRequestedEventPort>()
         val stockDeductRequestedEvent = slot<StockDeductRequestedEvent>()
@@ -36,7 +40,12 @@ class RentalServiceTest {
             title = "오브젝트",
         )
         every { stockDeductRequestedEventPort.save(capture(stockDeductRequestedEvent)) } just Runs
-        val rentalService = RentalService(rentalRepository, bookQueryPort, stockDeductRequestedEventPort)
+        val rentalService = RentalService(
+            rentalRepository,
+            rentalItemRepository,
+            bookQueryPort,
+            stockDeductRequestedEventPort,
+        )
 
         // when
         val rentalItem = rentalService.rentBook(
@@ -65,6 +74,7 @@ class RentalServiceTest {
         // given
         val savedRental = slot<Rental>()
         val rentalRepository = mockk<RentalRepository>()
+        val rentalItemRepository = mockk<RentalItemRepository>()
         val bookQueryPort = mockk<BookQueryPort>()
         val stockDeductRequestedEventPort = mockk<StockDeductRequestedEventPort>()
         val stockDeductRequestedEvent = slot<StockDeductRequestedEvent>()
@@ -75,7 +85,12 @@ class RentalServiceTest {
             title = "오브젝트",
         )
         every { stockDeductRequestedEventPort.save(capture(stockDeductRequestedEvent)) } just Runs
-        val rentalService = RentalService(rentalRepository, bookQueryPort, stockDeductRequestedEventPort)
+        val rentalService = RentalService(
+            rentalRepository,
+            rentalItemRepository,
+            bookQueryPort,
+            stockDeductRequestedEventPort,
+        )
 
         // when
         val rentalItem = rentalService.rentBook(
@@ -97,6 +112,45 @@ class RentalServiceTest {
             event = stockDeductRequestedEvent.captured,
             requestId = rentalItem.stockDeductRequestId,
         )
+    }
+
+    @Test
+    @DisplayName("재고 차감 성공 이벤트를 받으면 대출 항목을 확정한다")
+    fun handleStockDeducted() {
+        // given
+        val requestId = "11111111-1111-1111-1111-111111111111"
+        val rental = Rental.create(userId = 1L)
+        val rentalItem = rental.rentBook(
+            bookId = 10L,
+            bookTitle = "오브젝트",
+            stockDeductRequestId = requestId,
+        )
+        val rentalRepository = mockk<RentalRepository>()
+        val rentalItemRepository = mockk<RentalItemRepository>()
+        val bookQueryPort = mockk<BookQueryPort>()
+        val stockDeductRequestedEventPort = mockk<StockDeductRequestedEventPort>()
+        every { rentalItemRepository.findByStockDeductRequestId(requestId) } returns rentalItem
+        val rentalService = RentalService(
+            rentalRepository,
+            rentalItemRepository,
+            bookQueryPort,
+            stockDeductRequestedEventPort,
+        )
+
+        // when
+        rentalService.handleStockDeducted(
+            StockDeductedEvent(
+                eventId = "22222222-2222-2222-2222-222222222222",
+                requestId = requestId,
+                userId = 1L,
+                bookId = 10L,
+                quantity = 1L,
+                occurredAt = LocalDateTime.of(2026, 6, 9, 10, 0),
+            ),
+        )
+
+        // then
+        assertEquals(RentalItemStatus.RENTED, rentalItem.status)
     }
 
     private fun assertStockDeductRequestedEvent(

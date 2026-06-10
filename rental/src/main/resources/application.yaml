@@ -6,6 +6,11 @@ spring:
     name: rental
   kafka:
     bootstrap-servers: localhost:9092
+    consumer:
+      group-id: rental
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      auto-offset-reset: earliest
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer

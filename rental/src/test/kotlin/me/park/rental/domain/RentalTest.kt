@@ -187,6 +187,25 @@ class RentalTest {
     }
 
     @Test
+    @DisplayName("대기 도서를 대출 확정 상태로 변경한다")
+    fun confirmRent() {
+        // given
+        val rental = Rental.create(userId = 1L)
+        val rentalItem = rentalItem(
+            rental = rental,
+            status = RentalItemStatus.PENDING,
+            stockDeductRequestId = "11111111-1111-1111-1111-111111111111",
+        )
+        rental.rentalItems.add(rentalItem)
+
+        // when
+        rentalItem.confirmRent()
+
+        // then
+        assertEquals(RentalItemStatus.RENTED, rentalItem.status)
+    }
+
+    @Test
     @DisplayName("도서를 반납한다")
     fun returnBook() {
         // given
@@ -210,6 +229,7 @@ class RentalTest {
     private fun rentalItem(
         rental: Rental,
         status: RentalItemStatus,
+        stockDeductRequestId: String = "11111111-1111-1111-1111-111111111111",
     ): RentalItem {
         return RentalItem(
             rental = rental,
@@ -218,7 +238,7 @@ class RentalTest {
             rentedDate = LocalDate.of(2026, 5, 1),
             dueDate = LocalDate.of(2026, 5, 15),
             status = status,
-            stockDeductRequestId = "11111111-1111-1111-1111-111111111111",
+            stockDeductRequestId = stockDeductRequestId,
         )
     }
 }

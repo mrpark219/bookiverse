@@ -3,9 +3,12 @@ package me.park.rental.application
 import me.park.rental.application.command.RentBookCommand
 import me.park.rental.application.command.ReturnBookCommand
 import me.park.rental.application.event.StockDeductRequestedEvent
+import me.park.rental.application.event.StockDeductedEvent
 import me.park.rental.application.port.`in`.RentBookUseCase
 import me.park.rental.application.port.`in`.ReturnBookUseCase
+import me.park.rental.application.port.`in`.StockDeductedUseCase
 import me.park.rental.application.port.out.BookQueryPort
+import me.park.rental.application.port.out.RentalItemRepository
 import me.park.rental.application.port.out.RentalRepository
 import me.park.rental.application.port.out.StockDeductRequestedEventPort
 import me.park.rental.domain.Rental
@@ -19,9 +22,10 @@ import java.util.UUID
 @Service
 class RentalService(
     private val rentalRepository: RentalRepository,
+    private val rentalItemRepository: RentalItemRepository,
     private val bookQueryPort: BookQueryPort,
     private val stockDeductRequestedEventPort: StockDeductRequestedEventPort,
-) : RentBookUseCase, ReturnBookUseCase {
+) : RentBookUseCase, ReturnBookUseCase, StockDeductedUseCase {
 
     @Transactional
     override fun rentBook(command: RentBookCommand): RentalItem {
@@ -60,5 +64,13 @@ class RentalService(
         // TODO 도서 반납 이벤트 발송
 
         return returnItem
+    }
+
+    @Transactional
+    override fun handleStockDeducted(event: StockDeductedEvent) {
+        val rentalItem = rentalItemRepository.findByStockDeductRequestId(event.requestId)
+            ?: throw RentalNotFoundException("대출 항목을 찾을 수 없습니다. stockDeductRequestId=${event.requestId}")
+
+        rentalItem.confirmRent()
     }
 }
