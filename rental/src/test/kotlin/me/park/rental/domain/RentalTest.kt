@@ -206,6 +206,25 @@ class RentalTest {
     }
 
     @Test
+    @DisplayName("대기 도서를 실패 상태로 변경한다")
+    fun failRent() {
+        // given
+        val rental = Rental.create(userId = 1L)
+        val rentalItem = rentalItem(
+            rental = rental,
+            status = RentalItemStatus.PENDING,
+            stockDeductRequestId = "11111111-1111-1111-1111-111111111111",
+        )
+        rental.rentalItems.add(rentalItem)
+
+        // when
+        rentalItem.failRent()
+
+        // then
+        assertEquals(RentalItemStatus.FAILED, rentalItem.status)
+    }
+
+    @Test
     @DisplayName("도서를 반납한다")
     fun returnBook() {
         // given

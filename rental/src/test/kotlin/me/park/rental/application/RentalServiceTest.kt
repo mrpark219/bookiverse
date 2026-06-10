@@ -6,6 +6,7 @@ import io.mockk.mockk
 import io.mockk.Runs
 import io.mockk.slot
 import me.park.rental.application.command.RentBookCommand
+import me.park.rental.application.event.StockDeductFailedEvent
 import me.park.rental.application.event.StockDeductRequestedEvent
 import me.park.rental.application.event.StockDeductedEvent
 import me.park.rental.application.port.out.BookInfo
@@ -151,6 +152,46 @@ class RentalServiceTest {
 
         // then
         assertEquals(RentalItemStatus.RENTED, rentalItem.status)
+    }
+
+    @Test
+    @DisplayName("재고 차감 실패 이벤트를 받으면 대출 항목을 실패 처리한다")
+    fun handleStockDeductFailed() {
+        // given
+        val requestId = "11111111-1111-1111-1111-111111111111"
+        val rental = Rental.create(userId = 1L)
+        val rentalItem = rental.rentBook(
+            bookId = 10L,
+            bookTitle = "오브젝트",
+            stockDeductRequestId = requestId,
+        )
+        val rentalRepository = mockk<RentalRepository>()
+        val rentalItemRepository = mockk<RentalItemRepository>()
+        val bookQueryPort = mockk<BookQueryPort>()
+        val stockDeductRequestedEventPort = mockk<StockDeductRequestedEventPort>()
+        every { rentalItemRepository.findByStockDeductRequestId(requestId) } returns rentalItem
+        val rentalService = RentalService(
+            rentalRepository,
+            rentalItemRepository,
+            bookQueryPort,
+            stockDeductRequestedEventPort,
+        )
+
+        // when
+        rentalService.handleStockDeductFailed(
+            StockDeductFailedEvent(
+                eventId = "22222222-2222-2222-2222-222222222222",
+                requestId = requestId,
+                userId = 1L,
+                bookId = 10L,
+                quantity = 1L,
+                reason = "재고 부족",
+                occurredAt = LocalDateTime.of(2026, 6, 9, 10, 0),
+            ),
+        )
+
+        // then
+        assertEquals(RentalItemStatus.FAILED, rentalItem.status)
     }
 
     private fun assertStockDeductRequestedEvent(

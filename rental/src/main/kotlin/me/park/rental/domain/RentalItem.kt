@@ -62,4 +62,10 @@ class RentalItem(
             status = RentalItemStatus.RENTED
         }
     }
+
+    fun failRent() {
+        if (status == RentalItemStatus.PENDING) {
+            status = RentalItemStatus.FAILED
+        }
+    }
 }
