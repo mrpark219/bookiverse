@@ -32,13 +32,27 @@ class Rental(
     var id: Long? = null
 
     fun checkRentalAvailable() {
-        if (rentalStatus == RentalStatus.RENT_UNAVAILABLE) {
-            throw RentUnavailableException("연체 상태입니다. 연체료를 정산 후 도서를 대출하실 수 있습니다.")
+        if (isRentUnavailableBecauseOfOverdue()) {
+            throw RentUnavailableException("연체 중인 도서를 반납 후 도서를 대출하실 수 있습니다.")
         }
 
-        if (rentalItems.count { it.countsTowardRentalLimit() } >= MAX_RENTAL_ITEM_COUNT) {
-            throw RentUnavailableException("대출 가능한 도서의 수는 ${MAX_RENTAL_ITEM_COUNT}권 입니다.")
+        val rentalLimit = if (rentalStatus == RentalStatus.RENT_RESTRICTED || lateFee > 0L) {
+            RESTRICTED_RENTAL_ITEM_COUNT
+        } else {
+            MAX_RENTAL_ITEM_COUNT
         }
+        if (rentalItems.count { it.countsTowardRentalLimit() } >= rentalLimit) {
+            val message = if (rentalLimit == RESTRICTED_RENTAL_ITEM_COUNT) {
+                "연체료 정산 중에는 1권만 대출할 수 있습니다."
+            } else {
+                "대출 가능한 도서의 수는 ${MAX_RENTAL_ITEM_COUNT}권 입니다."
+            }
+            throw RentUnavailableException(message)
+        }
+    }
+
+    private fun isRentUnavailableBecauseOfOverdue(): Boolean {
+        return rentalStatus == RentalStatus.RENT_UNAVAILABLE || rentalItems.any { it.status == RentalItemStatus.OVERDUE }
     }
 
     fun rentBook(
@@ -64,19 +78,67 @@ class Rental(
         return rentalItem
     }
 
-    fun returnBook(bookId: Long): RentalItem {
+    fun markOverdueItems(
+        baseDate: LocalDate,
+        lateFeePolicy: LateFeePolicy = LateFeePolicy.DEFAULT,
+    ) {
+        val lateFeeDelta = rentalItems.sumOf {
+            it.markOverdue(
+                baseDate = baseDate,
+                lateFeePolicy = lateFeePolicy,
+            )
+        }
+        lateFee += lateFeeDelta
+        refreshRentalStatus()
+    }
+
+    fun returnBook(
+        bookId: Long,
+        returnedDate: LocalDate = LocalDate.now(),
+        lateFeePolicy: LateFeePolicy = LateFeePolicy.DEFAULT,
+    ): RentalItem {
         val rentalItem = rentalItems.first {
             it.bookId == bookId && it.isCurrentlyRented()
         }
 
-        rentalItem.status = RentalItemStatus.RETURNED
-        rentalItem.returnedDate = LocalDate.now()
+        lateFee += rentalItem.returnBook(
+            returnedDate = returnedDate,
+            lateFeePolicy = lateFeePolicy,
+        )
+        refreshRentalStatus()
 
         return rentalItem
     }
 
+    fun settleLateFeeWithPoint(point: Long): Long {
+        require(point >= 0) { "정산 포인트는 0 이상이어야 합니다. point=$point" }
+
+        if (lateFee == 0L) {
+            return point
+        }
+
+        val paidPoint = minOf(lateFee, point)
+        lateFee -= paidPoint
+        refreshRentalStatus()
+
+        return point - paidPoint
+    }
+
+    private fun refreshRentalStatus() {
+        rentalStatus = when {
+            hasUnreturnedOverdueItem() -> RentalStatus.RENT_UNAVAILABLE
+            lateFee > 0L -> RentalStatus.RENT_RESTRICTED
+            else -> RentalStatus.RENT_AVAILABLE
+        }
+    }
+
+    private fun hasUnreturnedOverdueItem(): Boolean {
+        return rentalItems.any { it.status == RentalItemStatus.OVERDUE }
+    }
+
     companion object {
         internal const val MAX_RENTAL_ITEM_COUNT = 5
+        internal const val RESTRICTED_RENTAL_ITEM_COUNT = 1
         internal const val RENTAL_PERIOD_DAYS = 14L
 
         fun create(userId: Long): Rental {

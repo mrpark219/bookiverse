@@ -57,6 +57,39 @@ class RentalItem(
         return status == RentalItemStatus.PENDING || isCurrentlyRented()
     }
 
+    fun markOverdue(baseDate: LocalDate, lateFeePolicy: LateFeePolicy): Long {
+        if (status != RentalItemStatus.RENTED && status != RentalItemStatus.OVERDUE) {
+            return 0L
+        }
+
+        val calculatedLateFee = lateFeePolicy.calculate(
+            dueDate = dueDate,
+            baseDate = baseDate,
+        )
+        if (calculatedLateFee == 0L) {
+            return 0L
+        }
+
+        status = RentalItemStatus.OVERDUE
+        val previousLateFee = lateFee
+        lateFee = maxOf(previousLateFee, calculatedLateFee)
+
+        return lateFee - previousLateFee
+    }
+
+    fun returnBook(returnedDate: LocalDate, lateFeePolicy: LateFeePolicy): Long {
+        val calculatedLateFee = lateFeePolicy.calculate(
+            dueDate = dueDate,
+            baseDate = returnedDate,
+        )
+        val previousLateFee = lateFee
+        lateFee = maxOf(previousLateFee, calculatedLateFee)
+        status = RentalItemStatus.RETURNED
+        this.returnedDate = returnedDate
+
+        return lateFee - previousLateFee
+    }
+
     fun confirmRent() {
         if (status == RentalItemStatus.PENDING) {
             status = RentalItemStatus.RENTED

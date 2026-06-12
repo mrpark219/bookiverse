@@ -28,7 +28,7 @@ class RentalTest {
     }
 
     @Test
-    @DisplayName("대출 상태가 불가능하면 예외를 던진다")
+    @DisplayName("대출 상태가 불가능하면 연체 도서 반납 안내 예외를 던진다")
     fun throwExceptionWhenRentalStatusIsUnavailable() {
         // given
         val rental = Rental(
@@ -43,7 +43,7 @@ class RentalTest {
         }
 
         // then
-        assertEquals("연체 상태입니다. 연체료를 정산 후 도서를 대출하실 수 있습니다.", exception.message)
+        assertEquals("연체 중인 도서를 반납 후 도서를 대출하실 수 있습니다.", exception.message)
     }
 
     @Test
@@ -182,7 +182,7 @@ class RentalTest {
         }
 
         // then
-        assertEquals("연체 상태입니다. 연체료를 정산 후 도서를 대출하실 수 있습니다.", exception.message)
+        assertEquals("연체 중인 도서를 반납 후 도서를 대출하실 수 있습니다.", exception.message)
         assertEquals(emptyList(), rental.rentalItems)
     }
 
@@ -245,19 +245,164 @@ class RentalTest {
         assertFalse(rentalItem.isCurrentlyRented())
     }
 
+    @Test
+    @DisplayName("연체료는 정책의 최대 부과 일수를 넘지 않는다")
+    fun capLateFeeByPolicyMaxChargeDays() {
+        // given
+        val lateFeePolicy = LateFeePolicy(
+            dailyPoint = 100L,
+            maxChargeDays = 3L,
+        )
+
+        // when
+        val lateFee = lateFeePolicy.calculate(
+            dueDate = LocalDate.of(2026, 6, 1),
+            baseDate = LocalDate.of(2026, 6, 10),
+        )
+
+        // then
+        assertEquals(300L, lateFee)
+    }
+
+    @Test
+    @DisplayName("대출 중인 도서의 반납일이 지나면 연체 상태로 변경하고 대출을 막는다")
+    fun markOverdueItems() {
+        // given
+        val rental = Rental.create(userId = 1L)
+        val rentalItem = rentalItem(
+            rental = rental,
+            status = RentalItemStatus.RENTED,
+            dueDate = LocalDate.of(2026, 6, 1),
+        )
+        rental.rentalItems.add(rentalItem)
+        val lateFeePolicy = LateFeePolicy(
+            dailyPoint = 100L,
+            maxChargeDays = 3L,
+        )
+
+        // when
+        rental.markOverdueItems(
+            baseDate = LocalDate.of(2026, 6, 3),
+            lateFeePolicy = lateFeePolicy,
+        )
+
+        // then
+        assertEquals(RentalItemStatus.OVERDUE, rentalItem.status)
+        assertEquals(200L, rentalItem.lateFee)
+        assertEquals(200L, rental.lateFee)
+        assertEquals(RentalStatus.RENT_UNAVAILABLE, rental.rentalStatus)
+    }
+
+    @Test
+    @DisplayName("반납하지 않은 연체 도서가 있으면 새 대출을 막는다")
+    fun preventRentWhenOverdueItemExists() {
+        // given
+        val rental = Rental.create(userId = 1L)
+        rental.rentalItems.add(
+            rentalItem(
+                rental = rental,
+                status = RentalItemStatus.OVERDUE,
+                lateFee = 100L,
+            ),
+        )
+        rental.lateFee = 100L
+        rental.rentalStatus = RentalStatus.RENT_UNAVAILABLE
+
+        // when
+        val exception = assertFailsWith<RentUnavailableException> {
+            rental.rentBook(
+                bookId = 2L,
+                bookTitle = "도메인 주도 설계",
+                stockDeductRequestId = "22222222-2222-2222-2222-222222222222",
+            )
+        }
+
+        // then
+        assertEquals("연체 중인 도서를 반납 후 도서를 대출하실 수 있습니다.", exception.message)
+    }
+
+    @Test
+    @DisplayName("연체 도서를 모두 반납했지만 연체료가 남아 있으면 한 권만 대출할 수 있다")
+    fun allowOnlyOneRentWhenLateFeeRemainsAfterReturningOverdueItems() {
+        // given
+        val rental = Rental.create(userId = 1L)
+        val rentalItem = rentalItem(
+            rental = rental,
+            status = RentalItemStatus.OVERDUE,
+            dueDate = LocalDate.of(2026, 6, 1),
+            lateFee = 100L,
+        )
+        rental.rentalItems.add(rentalItem)
+        rental.lateFee = 100L
+        rental.rentalStatus = RentalStatus.RENT_UNAVAILABLE
+        val lateFeePolicy = LateFeePolicy(
+            dailyPoint = 100L,
+            maxChargeDays = 3L,
+        )
+
+        // when
+        rental.returnBook(
+            bookId = 1L,
+            returnedDate = LocalDate.of(2026, 6, 2),
+            lateFeePolicy = lateFeePolicy,
+        )
+        val restrictedRentalItem = rental.rentBook(
+            bookId = 2L,
+            bookTitle = "도메인 주도 설계",
+            stockDeductRequestId = "22222222-2222-2222-2222-222222222222",
+        )
+        val exception = assertFailsWith<RentUnavailableException> {
+            rental.rentBook(
+                bookId = 3L,
+                bookTitle = "클린 아키텍처",
+                stockDeductRequestId = "33333333-3333-3333-3333-333333333333",
+            )
+        }
+
+        // then
+        assertEquals(RentalItemStatus.RETURNED, rentalItem.status)
+        assertEquals(RentalStatus.RENT_RESTRICTED, rental.rentalStatus)
+        assertEquals(RentalItemStatus.PENDING, restrictedRentalItem.status)
+        assertEquals("연체료 정산 중에는 1권만 대출할 수 있습니다.", exception.message)
+    }
+
+    @Test
+    @DisplayName("대출 보상 포인트는 연체료 상환에 먼저 사용하고 연체료가 사라지면 정상 대출 상태가 된다")
+    fun settleLateFeeWithRentRewardPointFirst() {
+        // given
+        val rental = Rental(
+            userId = 1L,
+            rentalStatus = RentalStatus.RENT_RESTRICTED,
+            lateFee = 250L,
+        )
+
+        // when
+        val firstRemainingPoint = rental.settleLateFeeWithPoint(100L)
+        val secondRemainingPoint = rental.settleLateFeeWithPoint(200L)
+
+        // then
+        assertEquals(0L, firstRemainingPoint)
+        assertEquals(50L, secondRemainingPoint)
+        assertEquals(0L, rental.lateFee)
+        assertEquals(RentalStatus.RENT_AVAILABLE, rental.rentalStatus)
+    }
+
     private fun rentalItem(
         rental: Rental,
         status: RentalItemStatus,
         stockDeductRequestId: String = "11111111-1111-1111-1111-111111111111",
+        dueDate: LocalDate = LocalDate.of(2026, 5, 15),
+        lateFee: Long = 0L,
     ): RentalItem {
         return RentalItem(
             rental = rental,
             bookId = 1L,
             bookTitle = "오브젝트",
             rentedDate = LocalDate.of(2026, 5, 1),
-            dueDate = LocalDate.of(2026, 5, 15),
+            dueDate = dueDate,
             status = status,
             stockDeductRequestId = stockDeductRequestId,
+            lateFee = lateFee,
         )
     }
 }
