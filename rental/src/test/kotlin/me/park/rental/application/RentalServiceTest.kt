@@ -15,8 +15,11 @@ import me.park.rental.application.port.out.RentalItemRepository
 import me.park.rental.application.port.out.RentalRepository
 import me.park.rental.application.port.out.StockDeductRequestedEventPort
 import me.park.rental.domain.Rental
+import me.park.rental.domain.RentalItem
 import me.park.rental.domain.RentalItemStatus
+import me.park.rental.domain.RentalStatus
 import org.junit.jupiter.api.DisplayName
+import java.time.LocalDate
 import java.time.LocalDateTime
 import java.util.UUID
 import kotlin.test.Test
@@ -194,6 +197,40 @@ class RentalServiceTest {
         assertEquals(RentalItemStatus.FAILED, rentalItem.status)
     }
 
+    @Test
+    @DisplayName("반납 예정일이 지난 대출을 연체 처리한다")
+    fun markOverdueRentals() {
+        // given
+        val baseDate = LocalDate.of(2026, 6, 3)
+        val rental = Rental.create(userId = 1L)
+        val rentalItem = rentalItem(
+            rental = rental,
+            status = RentalItemStatus.RENTED,
+            dueDate = LocalDate.of(2026, 6, 1),
+        )
+        rental.rentalItems.add(rentalItem)
+        val rentalRepository = mockk<RentalRepository>()
+        val rentalItemRepository = mockk<RentalItemRepository>()
+        val bookQueryPort = mockk<BookQueryPort>()
+        val stockDeductRequestedEventPort = mockk<StockDeductRequestedEventPort>()
+        every { rentalRepository.findRentalsHavingOverdueItems(baseDate) } returns listOf(rental)
+        val rentalService = RentalService(
+            rentalRepository,
+            rentalItemRepository,
+            bookQueryPort,
+            stockDeductRequestedEventPort,
+        )
+
+        // when
+        rentalService.markOverdueRentals(baseDate)
+
+        // then
+        assertEquals(RentalItemStatus.OVERDUE, rentalItem.status)
+        assertEquals(200L, rentalItem.lateFee)
+        assertEquals(200L, rental.lateFee)
+        assertEquals(RentalStatus.RENT_UNAVAILABLE, rental.rentalStatus)
+    }
+
     private fun assertStockDeductRequestedEvent(
         event: StockDeductRequestedEvent,
         requestId: String,
@@ -203,5 +240,22 @@ class RentalServiceTest {
         assertEquals(1L, event.userId)
         assertEquals(10L, event.bookId)
         assertEquals(1L, event.quantity)
+    }
+
+    private fun rentalItem(
+        rental: Rental,
+        status: RentalItemStatus,
+        dueDate: LocalDate,
+        stockDeductRequestId: String = "11111111-1111-1111-1111-111111111111",
+    ): RentalItem {
+        return RentalItem(
+            rental = rental,
+            bookId = 10L,
+            bookTitle = "오브젝트",
+            stockDeductRequestId = stockDeductRequestId,
+            rentedDate = LocalDate.of(2026, 5, 1),
+            dueDate = dueDate,
+            status = status,
+        )
     }
 }

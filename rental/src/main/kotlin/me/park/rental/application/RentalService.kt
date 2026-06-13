@@ -5,6 +5,7 @@ import me.park.rental.application.command.ReturnBookCommand
 import me.park.rental.application.event.StockDeductFailedEvent
 import me.park.rental.application.event.StockDeductRequestedEvent
 import me.park.rental.application.event.StockDeductedEvent
+import me.park.rental.application.port.`in`.MarkOverdueRentalsUseCase
 import me.park.rental.application.port.`in`.RentBookUseCase
 import me.park.rental.application.port.`in`.ReturnBookUseCase
 import me.park.rental.application.port.`in`.StockDeductFailedUseCase
@@ -18,6 +19,7 @@ import me.park.rental.domain.RentalItem
 import me.park.rental.domain.RentalNotFoundException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.LocalDate
 import java.time.LocalDateTime
 import java.util.UUID
 
@@ -27,7 +29,7 @@ class RentalService(
     private val rentalItemRepository: RentalItemRepository,
     private val bookQueryPort: BookQueryPort,
     private val stockDeductRequestedEventPort: StockDeductRequestedEventPort,
-) : RentBookUseCase, ReturnBookUseCase, StockDeductedUseCase, StockDeductFailedUseCase {
+) : RentBookUseCase, ReturnBookUseCase, StockDeductedUseCase, StockDeductFailedUseCase, MarkOverdueRentalsUseCase {
 
     @Transactional
     override fun rentBook(command: RentBookCommand): RentalItem {
@@ -82,5 +84,13 @@ class RentalService(
             ?: throw RentalNotFoundException("대출 항목을 찾을 수 없습니다. stockDeductRequestId=${event.requestId}")
 
         rentalItem.failRent()
+    }
+
+    @Transactional
+    override fun markOverdueRentals(baseDate: LocalDate) {
+        rentalRepository.findRentalsHavingOverdueItems(baseDate)
+            .forEach { rental ->
+                rental.markOverdueItems(baseDate)
+            }
     }
 }
