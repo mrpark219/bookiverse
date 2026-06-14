@@ -37,3 +37,6 @@ rental:
   outbox:
     publisher:
       fixed-delay-ms: 1000
+  overdue:
+    scheduler:
+      cron: "0 5 0 * * *"
