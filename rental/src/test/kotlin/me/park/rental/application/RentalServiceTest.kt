@@ -6,14 +6,17 @@ import io.mockk.mockk
 import io.mockk.Runs
 import io.mockk.slot
 import me.park.rental.application.command.RentBookCommand
+import me.park.rental.application.command.ReturnBookCommand
 import me.park.rental.application.event.StockDeductFailedEvent
 import me.park.rental.application.event.StockDeductRequestedEvent
 import me.park.rental.application.event.StockDeductedEvent
+import me.park.rental.application.event.StockRestoreRequestedEvent
 import me.park.rental.application.port.out.BookInfo
 import me.park.rental.application.port.out.BookQueryPort
 import me.park.rental.application.port.out.RentalItemRepository
 import me.park.rental.application.port.out.RentalRepository
 import me.park.rental.application.port.out.StockDeductRequestedEventPort
+import me.park.rental.application.port.out.StockRestoreRequestedEventPort
 import me.park.rental.domain.Rental
 import me.park.rental.domain.RentalItem
 import me.park.rental.domain.RentalItemStatus
@@ -44,11 +47,13 @@ class RentalServiceTest {
             title = "오브젝트",
         )
         every { stockDeductRequestedEventPort.save(capture(stockDeductRequestedEvent)) } just Runs
+        val stockRestoreRequestedEventPort = mockk<StockRestoreRequestedEventPort>()
         val rentalService = RentalService(
             rentalRepository,
             rentalItemRepository,
             bookQueryPort,
             stockDeductRequestedEventPort,
+            stockRestoreRequestedEventPort,
         )
 
         // when
@@ -89,11 +94,13 @@ class RentalServiceTest {
             title = "오브젝트",
         )
         every { stockDeductRequestedEventPort.save(capture(stockDeductRequestedEvent)) } just Runs
+        val stockRestoreRequestedEventPort = mockk<StockRestoreRequestedEventPort>()
         val rentalService = RentalService(
             rentalRepository,
             rentalItemRepository,
             bookQueryPort,
             stockDeductRequestedEventPort,
+            stockRestoreRequestedEventPort,
         )
 
         // when
@@ -133,12 +140,14 @@ class RentalServiceTest {
         val rentalItemRepository = mockk<RentalItemRepository>()
         val bookQueryPort = mockk<BookQueryPort>()
         val stockDeductRequestedEventPort = mockk<StockDeductRequestedEventPort>()
+        val stockRestoreRequestedEventPort = mockk<StockRestoreRequestedEventPort>()
         every { rentalItemRepository.findByStockDeductRequestId(requestId) } returns rentalItem
         val rentalService = RentalService(
             rentalRepository,
             rentalItemRepository,
             bookQueryPort,
             stockDeductRequestedEventPort,
+            stockRestoreRequestedEventPort,
         )
 
         // when
@@ -172,12 +181,14 @@ class RentalServiceTest {
         val rentalItemRepository = mockk<RentalItemRepository>()
         val bookQueryPort = mockk<BookQueryPort>()
         val stockDeductRequestedEventPort = mockk<StockDeductRequestedEventPort>()
+        val stockRestoreRequestedEventPort = mockk<StockRestoreRequestedEventPort>()
         every { rentalItemRepository.findByStockDeductRequestId(requestId) } returns rentalItem
         val rentalService = RentalService(
             rentalRepository,
             rentalItemRepository,
             bookQueryPort,
             stockDeductRequestedEventPort,
+            stockRestoreRequestedEventPort,
         )
 
         // when
@@ -213,12 +224,14 @@ class RentalServiceTest {
         val rentalItemRepository = mockk<RentalItemRepository>()
         val bookQueryPort = mockk<BookQueryPort>()
         val stockDeductRequestedEventPort = mockk<StockDeductRequestedEventPort>()
+        val stockRestoreRequestedEventPort = mockk<StockRestoreRequestedEventPort>()
         every { rentalRepository.findRentalsHavingOverdueItems(baseDate) } returns listOf(rental)
         val rentalService = RentalService(
             rentalRepository,
             rentalItemRepository,
             bookQueryPort,
             stockDeductRequestedEventPort,
+            stockRestoreRequestedEventPort,
         )
 
         // when
@@ -231,12 +244,61 @@ class RentalServiceTest {
         assertEquals(RentalStatus.RENT_UNAVAILABLE, rental.rentalStatus)
     }
 
+    @Test
+    @DisplayName("도서를 반납하면 재고 복구 요청 이벤트를 저장한다")
+    fun returnBookSavesStockRestoreRequestedEvent() {
+        // given
+        val rental = Rental.create(userId = 1L)
+        val rentalItem = rentalItem(
+            rental = rental,
+            status = RentalItemStatus.RENTED,
+            dueDate = LocalDate.of(2026, 6, 30),
+        )
+        rental.rentalItems.add(rentalItem)
+        val rentalRepository = mockk<RentalRepository>()
+        val rentalItemRepository = mockk<RentalItemRepository>()
+        val bookQueryPort = mockk<BookQueryPort>()
+        val stockDeductRequestedEventPort = mockk<StockDeductRequestedEventPort>()
+        val stockRestoreRequestedEventPort = mockk<StockRestoreRequestedEventPort>()
+        val stockRestoreRequestedEvent = slot<StockRestoreRequestedEvent>()
+        every { rentalRepository.findByUserId(1L) } returns rental
+        every { stockRestoreRequestedEventPort.save(capture(stockRestoreRequestedEvent)) } just Runs
+        val rentalService = RentalService(
+            rentalRepository,
+            rentalItemRepository,
+            bookQueryPort,
+            stockDeductRequestedEventPort,
+            stockRestoreRequestedEventPort,
+        )
+
+        // when
+        val returnedItem = rentalService.returnBook(
+            ReturnBookCommand(
+                userId = 1L,
+                bookId = 10L,
+            ),
+        )
+
+        // then
+        assertSame(rentalItem, returnedItem)
+        assertEquals(RentalItemStatus.RETURNED, returnedItem.status)
+        assertStockRestoreRequestedEvent(stockRestoreRequestedEvent.captured)
+    }
+
     private fun assertStockDeductRequestedEvent(
         event: StockDeductRequestedEvent,
         requestId: String,
     ) {
         UUID.fromString(event.eventId)
         assertEquals(requestId, event.requestId)
+        assertEquals(1L, event.userId)
+        assertEquals(10L, event.bookId)
+        assertEquals(1L, event.quantity)
+    }
+
+    private fun assertStockRestoreRequestedEvent(event: StockRestoreRequestedEvent) {
+        UUID.fromString(event.eventId)
+        UUID.fromString(event.requestId)
         assertEquals(1L, event.userId)
         assertEquals(10L, event.bookId)
         assertEquals(1L, event.quantity)

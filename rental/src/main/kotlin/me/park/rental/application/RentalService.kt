@@ -5,6 +5,7 @@ import me.park.rental.application.command.ReturnBookCommand
 import me.park.rental.application.event.StockDeductFailedEvent
 import me.park.rental.application.event.StockDeductRequestedEvent
 import me.park.rental.application.event.StockDeductedEvent
+import me.park.rental.application.event.StockRestoreRequestedEvent
 import me.park.rental.application.port.`in`.MarkOverdueRentalsUseCase
 import me.park.rental.application.port.`in`.RentBookUseCase
 import me.park.rental.application.port.`in`.ReturnBookUseCase
@@ -14,6 +15,7 @@ import me.park.rental.application.port.out.BookQueryPort
 import me.park.rental.application.port.out.RentalItemRepository
 import me.park.rental.application.port.out.RentalRepository
 import me.park.rental.application.port.out.StockDeductRequestedEventPort
+import me.park.rental.application.port.out.StockRestoreRequestedEventPort
 import me.park.rental.domain.Rental
 import me.park.rental.domain.RentalItem
 import me.park.rental.domain.RentalNotFoundException
@@ -29,6 +31,7 @@ class RentalService(
     private val rentalItemRepository: RentalItemRepository,
     private val bookQueryPort: BookQueryPort,
     private val stockDeductRequestedEventPort: StockDeductRequestedEventPort,
+    private val stockRestoreRequestedEventPort: StockRestoreRequestedEventPort,
 ) : RentBookUseCase, ReturnBookUseCase, StockDeductedUseCase, StockDeductFailedUseCase, MarkOverdueRentalsUseCase {
 
     @Transactional
@@ -65,7 +68,16 @@ class RentalService(
 
         val returnItem = rental.returnBook(command.bookId)
 
-        // TODO 도서 반납 이벤트 발송
+        stockRestoreRequestedEventPort.save(
+            StockRestoreRequestedEvent(
+                eventId = UUID.randomUUID().toString(),
+                requestId = UUID.randomUUID().toString(),
+                userId = command.userId,
+                bookId = returnItem.bookId,
+                quantity = 1L,
+                occurredAt = LocalDateTime.now(),
+            ),
+        )
 
         return returnItem
     }
