@@ -21,4 +21,18 @@ interface JpaInventoryRepository : JpaRepository<Inventory, Long> {
         @Param("bookId") bookId: Long,
         @Param("quantity") quantity: Long,
     ): Int
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(
+        """
+        update Inventory i
+           set i.availableQuantity = i.availableQuantity + :quantity
+         where i.bookId = :bookId
+           and i.availableQuantity + :quantity <= i.totalQuantity
+        """,
+    )
+    fun restoreAvailableQuantity(
+        @Param("bookId") bookId: Long,
+        @Param("quantity") quantity: Long,
+    ): Int
 }

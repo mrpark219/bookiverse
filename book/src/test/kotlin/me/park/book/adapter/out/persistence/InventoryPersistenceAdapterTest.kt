@@ -42,4 +42,38 @@ class InventoryPersistenceAdapterTest {
         // then
         assertFalse(deducted)
     }
+
+    @Test
+    @DisplayName("조건부 재고 복구 update count가 1이면 복구 성공으로 처리한다")
+    fun restoreInventory() {
+        // given
+        val jpaInventoryRepository = mockk<JpaInventoryRepository>()
+        every {
+            jpaInventoryRepository.restoreAvailableQuantity(bookId = 10L, quantity = 1L)
+        } returns 1
+        val adapter = InventoryPersistenceAdapter(jpaInventoryRepository)
+
+        // when
+        val restored = adapter.restore(bookId = 10L, quantity = 1L)
+
+        // then
+        assertTrue(restored)
+    }
+
+    @Test
+    @DisplayName("조건부 재고 복구 update count가 0이면 복구 실패로 처리한다")
+    fun failWhenRestoreInventoryUpdateCountIsZero() {
+        // given
+        val jpaInventoryRepository = mockk<JpaInventoryRepository>()
+        every {
+            jpaInventoryRepository.restoreAvailableQuantity(bookId = 10L, quantity = 1L)
+        } returns 0
+        val adapter = InventoryPersistenceAdapter(jpaInventoryRepository)
+
+        // when
+        val restored = adapter.restore(bookId = 10L, quantity = 1L)
+
+        // then
+        assertFalse(restored)
+    }
 }

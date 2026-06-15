@@ -14,4 +14,11 @@ class InventoryPersistenceAdapter(
             quantity = quantity,
         ) == 1
     }
+
+    override fun restore(bookId: Long, quantity: Long): Boolean {
+        return jpaInventoryRepository.restoreAvailableQuantity(
+            bookId = bookId,
+            quantity = quantity,
+        ) == 1
+    }
 }
