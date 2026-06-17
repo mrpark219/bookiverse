@@ -6,6 +6,7 @@
     <file type="web" url="file://$PROJECT_DIR$/book-catalog" />
     <file type="web" url="file://$PROJECT_DIR$/gateway" />
     <file type="web" url="file://$PROJECT_DIR$/rental" />
+    <file type="web" url="file://$PROJECT_DIR$/user" />
   </component>
   <component name="ProjectRootManager" version="2" languageLevel="JDK_25" project-jdk-name="zulu-25" project-jdk-type="JavaSDK">
     <output url="file://$PROJECT_DIR$/out" />
