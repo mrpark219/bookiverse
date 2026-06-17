@@ -5,14 +5,17 @@ import io.mockk.just
 import io.mockk.mockk
 import io.mockk.Runs
 import io.mockk.slot
+import io.mockk.verify
 import me.park.rental.application.command.RentBookCommand
 import me.park.rental.application.command.ReturnBookCommand
 import me.park.rental.application.event.StockDeductFailedEvent
 import me.park.rental.application.event.StockDeductRequestedEvent
 import me.park.rental.application.event.StockDeductedEvent
 import me.park.rental.application.event.StockRestoreRequestedEvent
+import me.park.rental.application.event.PointEarnRequestedEvent
 import me.park.rental.application.port.out.BookInfo
 import me.park.rental.application.port.out.BookQueryPort
+import me.park.rental.application.port.out.PointEarnRequestedEventPort
 import me.park.rental.application.port.out.RentalItemRepository
 import me.park.rental.application.port.out.RentalRepository
 import me.park.rental.application.port.out.StockDeductRequestedEventPort
@@ -48,12 +51,14 @@ class RentalServiceTest {
         )
         every { stockDeductRequestedEventPort.save(capture(stockDeductRequestedEvent)) } just Runs
         val stockRestoreRequestedEventPort = mockk<StockRestoreRequestedEventPort>()
+        val pointEarnRequestedEventPort = mockk<PointEarnRequestedEventPort>(relaxed = true)
         val rentalService = RentalService(
             rentalRepository,
             rentalItemRepository,
             bookQueryPort,
             stockDeductRequestedEventPort,
             stockRestoreRequestedEventPort,
+            pointEarnRequestedEventPort,
         )
 
         // when
@@ -95,12 +100,14 @@ class RentalServiceTest {
         )
         every { stockDeductRequestedEventPort.save(capture(stockDeductRequestedEvent)) } just Runs
         val stockRestoreRequestedEventPort = mockk<StockRestoreRequestedEventPort>()
+        val pointEarnRequestedEventPort = mockk<PointEarnRequestedEventPort>(relaxed = true)
         val rentalService = RentalService(
             rentalRepository,
             rentalItemRepository,
             bookQueryPort,
             stockDeductRequestedEventPort,
             stockRestoreRequestedEventPort,
+            pointEarnRequestedEventPort,
         )
 
         // when
@@ -141,6 +148,7 @@ class RentalServiceTest {
         val bookQueryPort = mockk<BookQueryPort>()
         val stockDeductRequestedEventPort = mockk<StockDeductRequestedEventPort>()
         val stockRestoreRequestedEventPort = mockk<StockRestoreRequestedEventPort>()
+        val pointEarnRequestedEventPort = mockk<PointEarnRequestedEventPort>(relaxed = true)
         every { rentalItemRepository.findByStockDeductRequestId(requestId) } returns rentalItem
         val rentalService = RentalService(
             rentalRepository,
@@ -148,6 +156,7 @@ class RentalServiceTest {
             bookQueryPort,
             stockDeductRequestedEventPort,
             stockRestoreRequestedEventPort,
+            pointEarnRequestedEventPort,
         )
 
         // when
@@ -167,6 +176,103 @@ class RentalServiceTest {
     }
 
     @Test
+    @DisplayName("재고 차감 성공 이벤트를 받으면 대출 확정 포인트 적립 요청 이벤트를 저장한다")
+    fun handleStockDeductedSavesPointEarnRequestedEvent() {
+        // given
+        val requestId = "11111111-1111-1111-1111-111111111111"
+        val rental = Rental.create(userId = 1L)
+        val rentalItem = rental.rentBook(
+            bookId = 10L,
+            bookTitle = "오브젝트",
+            stockDeductRequestId = requestId,
+        )
+        val rentalRepository = mockk<RentalRepository>()
+        val rentalItemRepository = mockk<RentalItemRepository>()
+        val bookQueryPort = mockk<BookQueryPort>()
+        val stockDeductRequestedEventPort = mockk<StockDeductRequestedEventPort>()
+        val stockRestoreRequestedEventPort = mockk<StockRestoreRequestedEventPort>()
+        val pointEarnRequestedEventPort = mockk<PointEarnRequestedEventPort>()
+        val pointEarnRequestedEvent = slot<PointEarnRequestedEvent>()
+        every { rentalItemRepository.findByStockDeductRequestId(requestId) } returns rentalItem
+        every { pointEarnRequestedEventPort.save(capture(pointEarnRequestedEvent)) } just Runs
+        val rentalService = RentalService(
+            rentalRepository,
+            rentalItemRepository,
+            bookQueryPort,
+            stockDeductRequestedEventPort,
+            stockRestoreRequestedEventPort,
+            pointEarnRequestedEventPort,
+        )
+
+        // when
+        rentalService.handleStockDeducted(
+            StockDeductedEvent(
+                eventId = "22222222-2222-2222-2222-222222222222",
+                requestId = requestId,
+                userId = 1L,
+                bookId = 10L,
+                quantity = 1L,
+                occurredAt = LocalDateTime.of(2026, 6, 9, 10, 0),
+            ),
+        )
+
+        // then
+        assertEquals(RentalItemStatus.RENTED, rentalItem.status)
+        UUID.fromString(pointEarnRequestedEvent.captured.eventId)
+        assertEquals(requestId, pointEarnRequestedEvent.captured.requestId)
+        assertEquals(1L, pointEarnRequestedEvent.captured.userId)
+        assertEquals(100L, pointEarnRequestedEvent.captured.amount)
+        assertEquals("도서 대출 적립", pointEarnRequestedEvent.captured.reason)
+        assertEquals("RENTAL", pointEarnRequestedEvent.captured.referenceType)
+        assertEquals(requestId, pointEarnRequestedEvent.captured.referenceId)
+    }
+
+    @Test
+    @DisplayName("이미 확정된 대출 항목의 재고 차감 성공 이벤트는 포인트를 다시 적립하지 않는다")
+    fun doNotEarnPointWhenRentalItemAlreadyConfirmed() {
+        // given
+        val requestId = "11111111-1111-1111-1111-111111111111"
+        val rental = Rental.create(userId = 1L)
+        val rentalItem = rental.rentBook(
+            bookId = 10L,
+            bookTitle = "오브젝트",
+            stockDeductRequestId = requestId,
+        )
+        rentalItem.confirmRent()
+        val rentalRepository = mockk<RentalRepository>()
+        val rentalItemRepository = mockk<RentalItemRepository>()
+        val bookQueryPort = mockk<BookQueryPort>()
+        val stockDeductRequestedEventPort = mockk<StockDeductRequestedEventPort>()
+        val stockRestoreRequestedEventPort = mockk<StockRestoreRequestedEventPort>()
+        val pointEarnRequestedEventPort = mockk<PointEarnRequestedEventPort>(relaxed = true)
+        every { rentalItemRepository.findByStockDeductRequestId(requestId) } returns rentalItem
+        val rentalService = RentalService(
+            rentalRepository,
+            rentalItemRepository,
+            bookQueryPort,
+            stockDeductRequestedEventPort,
+            stockRestoreRequestedEventPort,
+            pointEarnRequestedEventPort,
+        )
+
+        // when
+        rentalService.handleStockDeducted(
+            StockDeductedEvent(
+                eventId = "22222222-2222-2222-2222-222222222222",
+                requestId = requestId,
+                userId = 1L,
+                bookId = 10L,
+                quantity = 1L,
+                occurredAt = LocalDateTime.of(2026, 6, 9, 10, 0),
+            ),
+        )
+
+        // then
+        assertEquals(RentalItemStatus.RENTED, rentalItem.status)
+        verify(exactly = 0) { pointEarnRequestedEventPort.save(any()) }
+    }
+
+    @Test
     @DisplayName("재고 차감 실패 이벤트를 받으면 대출 항목을 실패 처리한다")
     fun handleStockDeductFailed() {
         // given
@@ -182,6 +288,7 @@ class RentalServiceTest {
         val bookQueryPort = mockk<BookQueryPort>()
         val stockDeductRequestedEventPort = mockk<StockDeductRequestedEventPort>()
         val stockRestoreRequestedEventPort = mockk<StockRestoreRequestedEventPort>()
+        val pointEarnRequestedEventPort = mockk<PointEarnRequestedEventPort>(relaxed = true)
         every { rentalItemRepository.findByStockDeductRequestId(requestId) } returns rentalItem
         val rentalService = RentalService(
             rentalRepository,
@@ -189,6 +296,7 @@ class RentalServiceTest {
             bookQueryPort,
             stockDeductRequestedEventPort,
             stockRestoreRequestedEventPort,
+            pointEarnRequestedEventPort,
         )
 
         // when
@@ -225,6 +333,7 @@ class RentalServiceTest {
         val bookQueryPort = mockk<BookQueryPort>()
         val stockDeductRequestedEventPort = mockk<StockDeductRequestedEventPort>()
         val stockRestoreRequestedEventPort = mockk<StockRestoreRequestedEventPort>()
+        val pointEarnRequestedEventPort = mockk<PointEarnRequestedEventPort>(relaxed = true)
         every { rentalRepository.findRentalsHavingOverdueItems(baseDate) } returns listOf(rental)
         val rentalService = RentalService(
             rentalRepository,
@@ -232,6 +341,7 @@ class RentalServiceTest {
             bookQueryPort,
             stockDeductRequestedEventPort,
             stockRestoreRequestedEventPort,
+            pointEarnRequestedEventPort,
         )
 
         // when
@@ -261,6 +371,7 @@ class RentalServiceTest {
         val stockDeductRequestedEventPort = mockk<StockDeductRequestedEventPort>()
         val stockRestoreRequestedEventPort = mockk<StockRestoreRequestedEventPort>()
         val stockRestoreRequestedEvent = slot<StockRestoreRequestedEvent>()
+        val pointEarnRequestedEventPort = mockk<PointEarnRequestedEventPort>(relaxed = true)
         every { rentalRepository.findByUserId(1L) } returns rental
         every { stockRestoreRequestedEventPort.save(capture(stockRestoreRequestedEvent)) } just Runs
         val rentalService = RentalService(
@@ -269,6 +380,7 @@ class RentalServiceTest {
             bookQueryPort,
             stockDeductRequestedEventPort,
             stockRestoreRequestedEventPort,
+            pointEarnRequestedEventPort,
         )
 
         // when

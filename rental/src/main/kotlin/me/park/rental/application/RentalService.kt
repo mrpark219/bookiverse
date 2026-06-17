@@ -6,18 +6,21 @@ import me.park.rental.application.event.StockDeductFailedEvent
 import me.park.rental.application.event.StockDeductRequestedEvent
 import me.park.rental.application.event.StockDeductedEvent
 import me.park.rental.application.event.StockRestoreRequestedEvent
+import me.park.rental.application.event.PointEarnRequestedEvent
 import me.park.rental.application.port.`in`.MarkOverdueRentalsUseCase
 import me.park.rental.application.port.`in`.RentBookUseCase
 import me.park.rental.application.port.`in`.ReturnBookUseCase
 import me.park.rental.application.port.`in`.StockDeductFailedUseCase
 import me.park.rental.application.port.`in`.StockDeductedUseCase
 import me.park.rental.application.port.out.BookQueryPort
+import me.park.rental.application.port.out.PointEarnRequestedEventPort
 import me.park.rental.application.port.out.RentalItemRepository
 import me.park.rental.application.port.out.RentalRepository
 import me.park.rental.application.port.out.StockDeductRequestedEventPort
 import me.park.rental.application.port.out.StockRestoreRequestedEventPort
 import me.park.rental.domain.Rental
 import me.park.rental.domain.RentalItem
+import me.park.rental.domain.RentalItemStatus
 import me.park.rental.domain.RentalNotFoundException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -32,6 +35,7 @@ class RentalService(
     private val bookQueryPort: BookQueryPort,
     private val stockDeductRequestedEventPort: StockDeductRequestedEventPort,
     private val stockRestoreRequestedEventPort: StockRestoreRequestedEventPort,
+    private val pointEarnRequestedEventPort: PointEarnRequestedEventPort,
 ) : RentBookUseCase, ReturnBookUseCase, StockDeductedUseCase, StockDeductFailedUseCase, MarkOverdueRentalsUseCase {
 
     @Transactional
@@ -87,7 +91,22 @@ class RentalService(
         val rentalItem = rentalItemRepository.findByStockDeductRequestId(event.requestId)
             ?: throw RentalNotFoundException("대출 항목을 찾을 수 없습니다. stockDeductRequestId=${event.requestId}")
 
+        val shouldEarnPoint = rentalItem.status == RentalItemStatus.PENDING
         rentalItem.confirmRent()
+        if (shouldEarnPoint) {
+            pointEarnRequestedEventPort.save(
+                PointEarnRequestedEvent(
+                    eventId = UUID.randomUUID().toString(),
+                    requestId = event.requestId,
+                    userId = event.userId,
+                    amount = RENTAL_CONFIRMED_EARN_POINT,
+                    reason = "도서 대출 적립",
+                    referenceType = "RENTAL",
+                    referenceId = event.requestId,
+                    occurredAt = LocalDateTime.now(),
+                ),
+            )
+        }
     }
 
     @Transactional
@@ -104,5 +123,9 @@ class RentalService(
             .forEach { rental ->
                 rental.markOverdueItems(baseDate)
             }
+    }
+
+    companion object {
+        internal const val RENTAL_CONFIRMED_EARN_POINT = 100L
     }
 }
