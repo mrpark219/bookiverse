@@ -11,6 +11,7 @@ import me.park.user.application.port.out.PointWalletRepository
 import me.park.user.application.port.out.UserRepository
 import me.park.user.application.response.PointBalance
 import me.park.user.domain.PointLedger
+import me.park.user.domain.PointLedgerType
 import me.park.user.domain.PointWallet
 import me.park.user.domain.PointWalletNotFoundException
 import me.park.user.domain.User
@@ -47,6 +48,9 @@ class UserService(
     @Transactional
     override fun earnPoint(command: EarnPointCommand): PointBalance {
         val wallet = findWallet(command.userId)
+        if (alreadyEarned(command)) {
+            return PointBalance(userId = wallet.userId, balance = wallet.balance)
+        }
         wallet.earn(command.amount)
         pointWalletRepository.save(wallet)
         pointLedgerRepository.save(
@@ -60,6 +64,16 @@ class UserService(
             ),
         )
         return PointBalance(userId = wallet.userId, balance = wallet.balance)
+    }
+
+    private fun alreadyEarned(command: EarnPointCommand): Boolean {
+        val referenceType = command.referenceType ?: return false
+        val referenceId = command.referenceId ?: return false
+        return pointLedgerRepository.existsByTypeAndReferenceTypeAndReferenceId(
+            type = PointLedgerType.EARN,
+            referenceType = referenceType,
+            referenceId = referenceId,
+        )
     }
 
     @Transactional

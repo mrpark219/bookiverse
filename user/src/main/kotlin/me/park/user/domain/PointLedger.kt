@@ -7,9 +7,20 @@ import jakarta.persistence.Enumerated
 import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
+import jakarta.persistence.Table
+import jakarta.persistence.UniqueConstraint
 import java.time.LocalDateTime
 
 @Entity
+@Table(
+    name = "point_ledgers",
+    uniqueConstraints = [
+        UniqueConstraint(
+            name = "uk_point_ledgers_reference",
+            columnNames = ["type", "reference_type", "reference_id"],
+        ),
+    ],
+)
 class PointLedger(
     @Column(nullable = false)
     var userId: Long,
@@ -27,10 +38,10 @@ class PointLedger(
     @Column(nullable = false, length = 100)
     var reason: String,
 
-    @Column(length = 100)
+    @Column(name = "reference_type", length = 100)
     var referenceType: String? = null,
 
-    @Column(length = 100)
+    @Column(name = "reference_id", length = 100)
     var referenceId: String? = null,
 
     @Column(nullable = false)

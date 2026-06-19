@@ -58,6 +58,13 @@ class UserServiceTest {
         val wallet = PointWallet.create(userId = 1L)
         val ledger = slot<PointLedger>()
         every { pointWalletRepository.findByUserId(1L) } returns wallet
+        every {
+            pointLedgerRepository.existsByTypeAndReferenceTypeAndReferenceId(
+                type = PointLedgerType.EARN,
+                referenceType = "RENTAL",
+                referenceId = "rental-1",
+            )
+        } returns false
         every { pointWalletRepository.save(wallet) } returns wallet
         every { pointLedgerRepository.save(capture(ledger)) } answers { ledger.captured }
         val service = UserService(userRepository, pointWalletRepository, pointLedgerRepository)
@@ -80,6 +87,43 @@ class UserServiceTest {
         assertEquals(100L, ledger.captured.amount)
         assertEquals(100L, ledger.captured.balanceAfter)
         assertEquals("대출 적립", ledger.captured.reason)
+    }
+
+    @Test
+    @DisplayName("같은 참조의 포인트 적립 원장이 있으면 중복 적립하지 않는다")
+    fun skipDuplicateEarnPointByReference() {
+        // given
+        val userRepository = mockk<UserRepository>()
+        val pointWalletRepository = mockk<PointWalletRepository>()
+        val pointLedgerRepository = mockk<PointLedgerRepository>(relaxed = true)
+        val wallet = PointWallet.create(userId = 1L)
+        wallet.earn(100L)
+        every { pointWalletRepository.findByUserId(1L) } returns wallet
+        every {
+            pointLedgerRepository.existsByTypeAndReferenceTypeAndReferenceId(
+                type = PointLedgerType.EARN,
+                referenceType = "RENTAL",
+                referenceId = "rental-1",
+            )
+        } returns true
+        val service = UserService(userRepository, pointWalletRepository, pointLedgerRepository)
+
+        // when
+        val balance = service.earnPoint(
+            EarnPointCommand(
+                userId = 1L,
+                amount = 100L,
+                reason = "대출 적립",
+                referenceType = "RENTAL",
+                referenceId = "rental-1",
+            ),
+        )
+
+        // then
+        assertEquals(100L, balance.balance)
+        assertEquals(100L, wallet.balance)
+        verify(exactly = 0) { pointWalletRepository.save(any()) }
+        verify(exactly = 0) { pointLedgerRepository.save(any()) }
     }
 
     @Test
