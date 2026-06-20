@@ -94,18 +94,21 @@ class RentalService(
         val shouldEarnPoint = rentalItem.status == RentalItemStatus.PENDING
         rentalItem.confirmRent()
         if (shouldEarnPoint) {
-            pointEarnRequestedEventPort.save(
-                PointEarnRequestedEvent(
-                    eventId = UUID.randomUUID().toString(),
-                    requestId = event.requestId,
-                    userId = event.userId,
-                    amount = RENTAL_CONFIRMED_EARN_POINT,
-                    reason = "도서 대출 적립",
-                    referenceType = "RENTAL",
-                    referenceId = event.requestId,
-                    occurredAt = LocalDateTime.now(),
-                ),
-            )
+            val remainingPoint = rentalItem.rental.settleLateFeeWithPoint(RENTAL_CONFIRMED_EARN_POINT)
+            if (remainingPoint > 0L) {
+                pointEarnRequestedEventPort.save(
+                    PointEarnRequestedEvent(
+                        eventId = UUID.randomUUID().toString(),
+                        requestId = event.requestId,
+                        userId = event.userId,
+                        amount = remainingPoint,
+                        reason = "도서 대출 적립",
+                        referenceType = "RENTAL",
+                        referenceId = event.requestId,
+                        occurredAt = LocalDateTime.now(),
+                    ),
+                )
+            }
         }
     }
 

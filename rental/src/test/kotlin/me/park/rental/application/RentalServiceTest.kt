@@ -228,6 +228,111 @@ class RentalServiceTest {
     }
 
     @Test
+    @DisplayName("대출 확정 포인트보다 연체료가 크면 포인트 적립 요청 없이 연체료를 먼저 상환한다")
+    fun handleStockDeductedSettlesLateFeeWithoutPointEarnEvent() {
+        // given
+        val requestId = "11111111-1111-1111-1111-111111111111"
+        val rental = Rental(
+            userId = 1L,
+            rentalStatus = RentalStatus.RENT_RESTRICTED,
+            lateFee = 300L,
+        )
+        val rentalItem = rental.rentBook(
+            bookId = 10L,
+            bookTitle = "오브젝트",
+            stockDeductRequestId = requestId,
+        )
+        val rentalRepository = mockk<RentalRepository>()
+        val rentalItemRepository = mockk<RentalItemRepository>()
+        val bookQueryPort = mockk<BookQueryPort>()
+        val stockDeductRequestedEventPort = mockk<StockDeductRequestedEventPort>()
+        val stockRestoreRequestedEventPort = mockk<StockRestoreRequestedEventPort>()
+        val pointEarnRequestedEventPort = mockk<PointEarnRequestedEventPort>(relaxed = true)
+        every { rentalItemRepository.findByStockDeductRequestId(requestId) } returns rentalItem
+        val rentalService = RentalService(
+            rentalRepository,
+            rentalItemRepository,
+            bookQueryPort,
+            stockDeductRequestedEventPort,
+            stockRestoreRequestedEventPort,
+            pointEarnRequestedEventPort,
+        )
+
+        // when
+        rentalService.handleStockDeducted(
+            StockDeductedEvent(
+                eventId = "22222222-2222-2222-2222-222222222222",
+                requestId = requestId,
+                userId = 1L,
+                bookId = 10L,
+                quantity = 1L,
+                occurredAt = LocalDateTime.of(2026, 6, 9, 10, 0),
+            ),
+        )
+
+        // then
+        assertEquals(RentalItemStatus.RENTED, rentalItem.status)
+        assertEquals(200L, rental.lateFee)
+        assertEquals(RentalStatus.RENT_RESTRICTED, rental.rentalStatus)
+        verify(exactly = 0) { pointEarnRequestedEventPort.save(any()) }
+    }
+
+    @Test
+    @DisplayName("대출 확정 포인트가 연체료보다 크면 연체료 상환 후 남은 포인트만 적립 요청한다")
+    fun handleStockDeductedEarnsRemainingPointAfterLateFeeSettlement() {
+        // given
+        val requestId = "11111111-1111-1111-1111-111111111111"
+        val rental = Rental(
+            userId = 1L,
+            rentalStatus = RentalStatus.RENT_RESTRICTED,
+            lateFee = 50L,
+        )
+        val rentalItem = rental.rentBook(
+            bookId = 10L,
+            bookTitle = "오브젝트",
+            stockDeductRequestId = requestId,
+        )
+        val rentalRepository = mockk<RentalRepository>()
+        val rentalItemRepository = mockk<RentalItemRepository>()
+        val bookQueryPort = mockk<BookQueryPort>()
+        val stockDeductRequestedEventPort = mockk<StockDeductRequestedEventPort>()
+        val stockRestoreRequestedEventPort = mockk<StockRestoreRequestedEventPort>()
+        val pointEarnRequestedEventPort = mockk<PointEarnRequestedEventPort>()
+        val pointEarnRequestedEvent = slot<PointEarnRequestedEvent>()
+        every { rentalItemRepository.findByStockDeductRequestId(requestId) } returns rentalItem
+        every { pointEarnRequestedEventPort.save(capture(pointEarnRequestedEvent)) } just Runs
+        val rentalService = RentalService(
+            rentalRepository,
+            rentalItemRepository,
+            bookQueryPort,
+            stockDeductRequestedEventPort,
+            stockRestoreRequestedEventPort,
+            pointEarnRequestedEventPort,
+        )
+
+        // when
+        rentalService.handleStockDeducted(
+            StockDeductedEvent(
+                eventId = "22222222-2222-2222-2222-222222222222",
+                requestId = requestId,
+                userId = 1L,
+                bookId = 10L,
+                quantity = 1L,
+                occurredAt = LocalDateTime.of(2026, 6, 9, 10, 0),
+            ),
+        )
+
+        // then
+        assertEquals(RentalItemStatus.RENTED, rentalItem.status)
+        assertEquals(0L, rental.lateFee)
+        assertEquals(RentalStatus.RENT_AVAILABLE, rental.rentalStatus)
+        assertEquals(50L, pointEarnRequestedEvent.captured.amount)
+        assertEquals("도서 대출 적립", pointEarnRequestedEvent.captured.reason)
+        assertEquals("RENTAL", pointEarnRequestedEvent.captured.referenceType)
+        assertEquals(requestId, pointEarnRequestedEvent.captured.referenceId)
+    }
+
+    @Test
     @DisplayName("이미 확정된 대출 항목의 재고 차감 성공 이벤트는 포인트를 다시 적립하지 않는다")
     fun doNotEarnPointWhenRentalItemAlreadyConfirmed() {
         // given
