@@ -89,3 +89,23 @@ RENTED -> OVERDUE -> RETURNED
 ## 기술 스택
 
 Kotlin, Spring Boot, Spring Data JPA, Spring Kafka, OpenFeign, MySQL, H2, Kafka, Gradle Kotlin DSL
+
+## 로컬 쿠버네티스
+
+로컬에서는 kind로 단일 노드 클러스터를 띄우고, 외부 트래픽을 Spring `gateway` 대신 NGINX Ingress로 라우팅한다. 매니페스트는 `k8s/local`에 두고 `kustomization.yaml`로 한 번에 적용한다.
+
+| 파일 | 구성 |
+| --- | --- |
+| `kind-bookiverse.yaml` | 단일 노드 클러스터. 노드의 80 포트를 호스트 8080으로 노출 |
+| `k8s/local/namespace.yaml` | `bookiverse` 네임스페이스 |
+| `k8s/local/mysql-secret.yaml` | 서비스별 DB 계정 정보를 담은 Secret |
+| `k8s/local/mysql.yaml` | book/rental/user 전용 MySQL Deployment와 Service (DB per service) |
+| `k8s/local/kafka.yaml` | KRaft 모드 단일 Kafka Deployment와 Service |
+| `k8s/local/apps.yaml` | book/rental/user 앱 Deployment와 Service |
+| `k8s/local/ingress.yaml` | `bookiverse.local` 호스트의 경로 기반 라우팅 |
+
+- 각 앱은 initContainer로 의존하는 MySQL과 Kafka(rental은 book까지)가 열릴 때까지 기다린 뒤 기동한다.
+- startup, readiness, liveness probe로 기동과 상태를 관리한다.
+- Ingress는 `/books`, `/rentals`, `/users` 요청을 각 서비스로 보낸다.
+
+클러스터 생성, 이미지 빌드와 적재, 배포, 라우팅 테스트 명령은 [`docs/k8s-local.md`](docs/k8s-local.md)에 있다.
