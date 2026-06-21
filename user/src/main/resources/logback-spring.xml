@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <!-- Spring Boot가 제공하는 %clr, %wEx 같은 변환기 정의를 가져온다 -->
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+
+    <!-- application.yaml의 spring.application.name을 로그 패턴/파일명에서 쓰기 위해 읽어온다 -->
+    <springProperty scope="context" name="APP_NAME" source="spring.application.name" defaultValue="app"/>
+
+    <!-- 로그 파일이 쌓일 디렉터리. 컨테이너 작업 경로(/app) 기준이라 /app/logs 에 남는다. -->
+    <property name="LOG_DIR" value="logs"/>
+
+    <!-- 콘솔(stdout)로 출력한다. 쿠버네티스에서는 kubectl logs로 이 출력을 본다. -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <charset>UTF-8</charset>
+            <!-- %clr은 TTY가 아닐 때 색을 자동으로 끄므로 로그 수집기에도 안전하다 -->
+            <pattern>%clr(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %clr(%-5level) %clr([${APP_NAME}]){magenta} %clr(%logger{36}){cyan} %clr(:){faint} %msg%n%wEx</pattern>
+        </encoder>
+    </appender>
+
+    <!-- 파일로도 남긴다. exec로 들어가 /app/logs/<app>.log 를 tail 할 수 있다. -->
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_DIR}/${APP_NAME}.log</file>
+        <encoder>
+            <charset>UTF-8</charset>
+            <!-- 파일에는 색 코드 없이 평문으로 남긴다 -->
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [${APP_NAME}] %logger{36} : %msg%n%wEx</pattern>
+        </encoder>
+        <!-- 날짜+크기 기준으로 롤링한다. 하루 단위 또는 10MB마다 새 파일, 7일치/총 100MB 보관 -->
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_DIR}/${APP_NAME}.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <maxFileSize>10MB</maxFileSize>
+            <maxHistory>7</maxHistory>
+            <totalSizeCap>100MB</totalSizeCap>
+        </rollingPolicy>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="FILE"/>
+    </root>
+
+    <!-- 우리 애플리케이션 코드는 DEBUG까지 본다 -->
+    <logger name="me.park" level="DEBUG"/>
+</configuration>
